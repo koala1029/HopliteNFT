@@ -54,4 +54,79 @@ contract HopliteNFT is Ownable, ONFT721, ERC2981, IHopliteNFT {
     event DeleteDefaultRoyalty();
     event ResetTokenRoyalty(uint256 tokenId);
     event UpdateGoLiveDate(uint256 newLiveDate);
+
+     /*//////////////////////////////////////////////////////////////
+                       Configuration
+    //////////////////////////////////////////////////////////////*/
+
+    function setBaseURI(string memory baseURI) public onlyOwner {
+        baseTokenURI = baseURI;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        Tweaks
+    //////////////////////////////////////////////////////////////*/
+
+    function setDefaultRoyalty(address receiver, uint96 newRoyalty) public onlyOwner {
+        require(newRoyalty <= MAX_ROYALTY, "Too high royalty");
+        _setDefaultRoyalty(receiver, newRoyalty);
+        emit NewDefaultRoyalty(receiver, newRoyalty);
+    }
+
+    function deleteDefaultRoyalty() public onlyOwner {
+        _deleteDefaultRoyalty();
+        emit DeleteDefaultRoyalty();
+    }
+
+    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 newRoyalty) public onlyOwner {
+        require(newRoyalty <= MAX_ROYALTY, "Too high royalty");
+        _setTokenRoyalty(tokenId, receiver, newRoyalty);
+        emit NewTokenRoyalty(tokenId, receiver, newRoyalty);
+    }
+
+    function resetTokenRoyalty(uint256 tokenId) public onlyOwner {
+        _resetTokenRoyalty(tokenId);
+        emit ResetTokenRoyalty(tokenId);
+    }
+
+    function updateWhiteList(address[] memory _whiteListUsers) external onlyOwner {
+        require(_whiteListUsers.length > 0, "Invalid Param");
+        for(uint i=0; i<_whiteListUsers.length; i++) {
+            require(_whiteListUsers[i] != address(0), "Invalid Address");
+            unchecked {
+                whiteList[_whiteListUsers[i]] = true;
+            }
+        }
+    }
+     
+    function removeWhiteList(address[] memory _whiteListUsers) external onlyOwner {
+        require(_whiteListUsers.length > 0, "Invalid Param");
+        for(uint i=0; i<_whiteListUsers.length; i++) {
+            require(_whiteListUsers[i] != address(0), "Invalid Address");
+            unchecked {
+                whiteList[_whiteListUsers[i]] = false;
+            }
+        }
+    }
+    
+    function updateGoLiveDate(uint256 _newLiveDate) external onlyOwner {
+        goLiveDate = _newLiveDate;
+        emit UpdateGoLiveDate(_newLiveDate);
+    }
+
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 batchSize
+    ) internal virtual override {
+        if(to == address(this) || (block.timestamp < goLiveDate && !whiteList[to])) {
+            revert NotWhiteList();
+        }
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC2981, ONFT721) returns (bool) {
+        return interfaceId == type(IHopliteNFT).interfaceId || super.supportsInterface(interfaceId);
+    }
 }
